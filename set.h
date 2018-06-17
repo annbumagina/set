@@ -51,6 +51,8 @@ struct set{
 
 
     using reverse_iterator = std::reverse_iterator<iterator>;
+	using const_reverse_iterator = reverse_iterator;
+	using const_iterator = iterator;
 
     set();
     set(set<T> const& other);
@@ -393,7 +395,7 @@ typename set<T>::iterator set<T>::erase(iterator it) {
     assert(it != end());
     T val = *it;
     std::shared_ptr< node<T> > const me = tree_traversal(head, val);
-    if (me->val != *it || it != me) {
+    if ((me->val < *it && *it < me->val) || it != me) {
         return {me, this};
     }
     std::shared_ptr< node<T> > par = parent(head, val);
@@ -446,7 +448,7 @@ std::shared_ptr< node<T> > set<T>::parent(std::shared_ptr< node<T> > root, T con
             return parent(root->left, val);
         }
         return root;
-    } else if (val > root->val) {
+    } else if (root->val < val) {
         if (root->right->val < val || val < root->right->val) {
             return parent(root->right, val);
         }

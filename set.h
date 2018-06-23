@@ -14,7 +14,7 @@ struct node{
         left(nullptr),
         right(nullptr)
     {}
-
+	
     T val;
     typename std::list< std::shared_ptr< node<T> > >::iterator ptr;
     std::shared_ptr< node<T> > left, right;
@@ -30,7 +30,7 @@ struct set{
         using iterator_category = std::bidirectional_iterator_tag;
 
         iterator();
-        iterator(std::shared_ptr< node<T> > const& other, set<T> const* owner);
+        iterator(typename std::list< std::shared_ptr< node<T> > >::const_iterator other, set<T> const* owner);
         iterator(iterator const& other);
         T const& operator*() const;
         T const* operator->() const;
@@ -39,13 +39,12 @@ struct set{
         iterator operator--(int);
         iterator& operator--();
         bool operator!=(iterator const& other) const;
-        bool operator!=(std::shared_ptr< node<T> const> other_it) const;
+        bool operator!=(typename std::list< std::shared_ptr< node<T> > >::const_iterator other) const;
         bool operator==(iterator const& other) const;
-        bool operator==(std::shared_ptr< node<T> const> other_it) const;
         iterator& operator=(iterator const& other);
 
     private:
-        std::shared_ptr< node<T> const> it;
+        typename std::list< std::shared_ptr< node<T> > >::const_iterator it;
         set<T> const* owner;
     };
 
@@ -65,7 +64,7 @@ struct set{
     iterator lower_bound(T const& val) const;
     iterator upper_bound(T const& val) const;
 
-    bool empty() const { return q.empty(); };
+    bool empty() const { return q.size() == 0; }
     void clear();
     template <typename U>
     friend void swap(set<U> &a, set<U> &b);
@@ -110,7 +109,7 @@ set<T>::iterator::iterator() :
 {}
 
 template <typename T>
-set<T>::iterator::iterator(std::shared_ptr< node<T> > const& other, set<T> const* owner) :
+set<T>::iterator::iterator(typename std::list< std::shared_ptr< node<T> > >::const_iterator other, set<T> const* owner) :
     it(other),
     owner(owner)
 {}
@@ -123,12 +122,12 @@ set<T>::iterator::iterator(set<T>::iterator const& other) :
 
 template <typename T>
 T const& set<T>::iterator::operator*() const{
-    return it->val;
+    return (*it)->val;
 }
 
 template <typename T>
 T const* set<T>::iterator::operator->() const{
-    return &it->val;
+    return &(*it)->val;
 }
 
 template <typename T>
@@ -140,14 +139,7 @@ typename set<T>::iterator set<T>::iterator::operator++(int) {
 
 template <typename T>
 typename set<T>::iterator& set<T>::iterator::operator++() {
-    assert(it != nullptr);
-    auto tmp = it->ptr;
-    tmp++;
-    if (tmp == owner->q.end()) {
-        it = nullptr;
-    } else {
-        it = *tmp;
-    }
+    it++;
     return *this;
 }
 
@@ -160,18 +152,7 @@ typename set<T>::iterator set<T>::iterator::operator--(int) {
 
 template <typename T>
 typename set<T>::iterator& set<T>::iterator::operator--() {
-    //assert(it->ptr != owner->q.begin());
-    if (owner->end() == it) {
-        it = owner->q.back();
-        return *this;
-    }
-    auto tmp = it->ptr;
-    tmp--;
-    if (tmp == owner->q.end()) {
-        it = nullptr;
-    } else {
-        it = *tmp;
-    }
+    it--;
     return *this;
 }
 
@@ -181,8 +162,8 @@ bool set<T>::iterator::operator!=(iterator const& other) const {
 }
 
 template <typename T>
-bool set<T>::iterator::operator!=(std::shared_ptr< node<T> const> other_it) const {
-    return it != other_it;
+bool set<T>::iterator::operator!=(typename std::list< std::shared_ptr< node<T> > >::const_iterator other) const {
+    return it != other;
 }
 
 template <typename T>
@@ -191,13 +172,9 @@ bool set<T>::iterator::operator==(iterator const& other) const {
 }
 
 template <typename T>
-bool set<T>::iterator::operator==(std::shared_ptr< node<T> const> other_it) const {
-    return it == other_it;
-}
-
-template <typename T>
 typename set<T>::iterator& set<T>::iterator::operator=(iterator const& other) {
-    new (&it) std::shared_ptr< node<T> const>(other.it);
+    it = other.it;
+	owner = other.owner;
     return *this;
 }
 
@@ -260,20 +237,20 @@ std::pair<typename set<T>::iterator, bool> set<T>::insert(T const& val) {
         if (val < it->val) {
             new (&it->left) std::shared_ptr< node<T> >(new node<T>(val));
             it->left->ptr = q.insert(it->ptr, it->left);
-            return {{it->left, this}, true};
+            return {{it->left->ptr, this}, true};
         } else if (it->val < val) {
             new (&it->right) std::shared_ptr< node<T> >(new node<T>(val));
             auto tmp = it->ptr;
             tmp++;
             it->right->ptr = q.insert(tmp, it->right);
-            return {{it->right, this}, true};
+            return {{it->right->ptr, this}, true};
         } else {
-            return {{it, this}, false};
+            return {{it->ptr, this}, false};
         }
     } else {
         new (&head) std::shared_ptr< node<T> >(new node<T>(val));
         head->ptr = q.insert(q.begin(), head);
-        return {{head, this}, true};
+        return {{head->ptr, this}, true};
     }
 }
 
@@ -305,7 +282,7 @@ typename set<T>::iterator set<T>::find(T const& val) const {
     if (val < it->val || it->val < val) {
         return end();
     } else {
-        return {it, this};
+        return {it->ptr, this};
     }
 }
 
@@ -318,12 +295,9 @@ typename set<T>::iterator set<T>::lower_bound(T const& val) const {
     if (it->val < val) {
         auto tmp = it->ptr;
         tmp++;
-        if (tmp == q.end()) {
-            return end();
-        }
-        return {*tmp, this};
+        return {tmp, this};
     } else {
-        return {it, this};
+        return {it->ptr, this};
     }
 }
 
@@ -334,14 +308,11 @@ typename set<T>::iterator set<T>::upper_bound(T const& val) const {
     }
     std::shared_ptr< node<T> > it = tree_traversal(head, val);
     if (val < it->val) {
-        return {it, this};
+        return {it->ptr, this};
     } else {
         auto tmp = it->ptr;
         tmp++;
-        if (tmp == q.end()) {
-            return end();
-        }
-        return {*tmp, this};
+        return {tmp, this};
     }
 }
 
@@ -352,7 +323,7 @@ void swap(set<U> &a, set<U> &b) {
 }
 
 template <typename T>
-set<T>::set(set<T> const& other) : head(nullptr) {
+set<T>::set(set<T> const& other) : set() {
     if (!other.head) {
         return;
     }
@@ -387,20 +358,26 @@ void set<T>::tree_copy(std::shared_ptr< node<T> > root, std::shared_ptr< node<T>
 template <typename T>
 void set<T>::clear() {
     q.clear();
-    head = nullptr;
+	head = nullptr;
 }
 
 template <typename T>
 typename set<T>::iterator set<T>::erase(iterator it) {
-    assert(it != end());
+    if (!head) {
+        return end();
+    }
     T val = *it;
     std::shared_ptr< node<T> > const me = tree_traversal(head, val);
-    if ((me->val < *it && *it < me->val) || it != me) {
-        return {me, this};
+	auto tmp = me->ptr;
+    tmp++;
+    if (me->val < *it || *it < me->val || it != me->ptr) {
+		if (me->val < val) {
+		    return {tmp, this};
+		} else {
+		    return {me->ptr, this};
+		}
     }
     std::shared_ptr< node<T> > par = parent(head, val);
-    auto tmp = me->ptr;
-    tmp++;
     if (me->left && me->right) {
         std::shared_ptr< node<T> > par2 = parent(head, (*tmp)->val);
         std::shared_ptr< node<T> > next;
@@ -438,7 +415,7 @@ typename set<T>::iterator set<T>::erase(iterator it) {
         }
     }
     q.erase(me->ptr);
-    return {*tmp, this};
+    return {tmp, this};
 }
 
 template <typename T>
@@ -460,16 +437,12 @@ std::shared_ptr< node<T> > set<T>::parent(std::shared_ptr< node<T> > root, T con
 
 template <typename T>
 typename set<T>::iterator set<T>::begin() const {
-    if (q.empty()) {
-        return end();
-    } else {
-        return {*q.begin(), this};
-    }
+    return set<T>::iterator(q.begin(), this);
 }
 
 template <typename T>
 typename set<T>::iterator set<T>::end() const {
-    return {std::shared_ptr< node<T> >(nullptr), this};
+    return set<T>::iterator(q.end(), this);
 }
 
 template <typename T>
